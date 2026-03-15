@@ -1,8 +1,4 @@
-# %% [markdown]
-# Importing Libraries
-#
 
-# %%
 import joblib
 import pandas as pd
 import numpy as np
@@ -14,10 +10,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 
-# %% [markdown]
-# Load dataset
-
-# %%
 
 # Load dataset
 df = pd.read_excel("Water quality dataset.xlsx")
@@ -60,39 +52,39 @@ df["Quality"] = df.apply(assign_quality, axis=1)
 # Save updated dataset
 df.to_excel("water_quality_updated.xlsx", index=False)
 
-# %% [markdown]
+
 # Clean dataset
 
-# %%
+
 df = df.drop_duplicates()
 df = df.dropna()
 
-# %% [markdown]
+
 # Define features and label
 
-# %%
+
 X = df.drop(columns=['Sample_ID', 'Quality'])
 y = df['Quality']
 
-# %% [markdown]
+
 # Encode the target values(safe -> 0,Moderate -> 1,Unsafe -> 2)
 
-# %%
+
 le = LabelEncoder()
 y = le.fit_transform(y)
 
-# %% [markdown]
+
 # Split dataset
 
-# %%
+
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.3, random_state=42
 )
 
-# %% [markdown]
+
 # Create the model
 
-# %%
+
 rf_model = RandomForestClassifier(
     n_estimators=120,
     max_depth=6,
@@ -101,23 +93,23 @@ rf_model = RandomForestClassifier(
     random_state=42
 )
 
-# %% [markdown]
+
 # Train the model
 
-# %%
+
 rf_model.fit(X_train, y_train)
 
-# %% [markdown]
+
 # Make Predictions
 
-# %%
+
 y_pred = rf_model.predict(X_test)
 y_pred
 
-# %% [markdown]
+
 # Check Model Accuracy
 
-# %%
+
 accuracy = accuracy_score(y_test, y_pred)
 print("Accuracy:", accuracy)
 plt.bar(["Accuracy"], [accuracy])
@@ -127,17 +119,16 @@ plt.ylim(0, 1)
 
 plt.show()
 
-# %% [markdown]
 # Confusion Matrix(correct VS incorrect predictions)
 
-# %%
+
 cm = confusion_matrix(y_test, y_pred)
 print(cm)
 
-# %% [markdown]
+
 # Predicting the state of new sample
 
-# %%
+
 new_sample = pd.DataFrame([[6.5, 0.5, 25]], columns=X.columns)
 prediction = rf_model.predict(new_sample)
 print(prediction)
@@ -145,13 +136,13 @@ prediction = rf_model.predict(new_sample)
 result = le.inverse_transform(prediction)
 print("Water Quality:", result[0])
 
-# %%
+
 print(classification_report(y_test, y_pred))
 
-# %% [markdown]
+
 # Feature Distribution
 
-# %%
+
 sns.histplot(df['pH'], kde=True)
 plt.title("pH Distribution")
 plt.show()
@@ -164,10 +155,10 @@ sns.histplot(df['Total Hardness'], kde=True)
 plt.title("Total Hardness Distribution")
 plt.show()
 
-# %% [markdown]
+
 # Feature Importance
 
-# %%
+
 importances = rf_model.feature_importances_
 
 feature_names = X.columns
@@ -178,25 +169,25 @@ plt.xlabel("Parameters")
 plt.ylabel("Importance")
 plt.show()
 
-# %%
+
 df['WQI'] = (
     (df['pH']/8.5)*0.3 +
     (df['Turbidity']/5)*0.4 +
     (df['Total Hardness']/600)*0.3
 )
 
-# %% [markdown]
+
 # Water Quality Index Calculation
 
-# %%
+
 sns.histplot(df['WQI'])
 plt.title("Water Quality Index Distribution")
 plt.show()
 
-# %% [markdown]
+
 # Save the trained Model
 
-# %%
+
 
 joblib.dump(rf_model, "water_quality_model.pkl")
 joblib.dump(le, "label_encoder.pkl")
