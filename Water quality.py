@@ -1,192 +1,141 @@
-
-import joblib
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import joblib
+
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
 
 
-# Load dataset
-df = pd.read_excel("Water quality dataset.xlsx")
+df = pd.read_csv("Water quality dataset.csv")
 
 np.random.seed(42)
 
-# Add small noise to parameters
-df["pH"] = df["pH"] + np.random.normal(0, 0.25, len(df))
-df["Turbidity"] = df["Turbidity"] + np.random.normal(0, 0.7, len(df))
-df["Total Hardness"] = df["Total Hardness"] + np.random.normal(0, 40, len(df))
 
-# Keep realistic limits
-df["pH"] = df["pH"].clip(6, 9)
-df["Turbidity"] = df["Turbidity"].clip(0.3, 10)
-df["Total Hardness"] = df["Total Hardness"].clip(50, 600)
-
-# Assign quality with overlapping ranges
+df["pH"] += np.random.normal(0, 0.3, len(df))
+df["Turbidity"] += np.random.normal(0, 0.8, len(df))
+df["Total_Hardness"] += np.random.normal(0, 30, len(df))
 
 
-def assign_quality(row):
-
-    score = (
-        abs(row["pH"] - 7.2) * 1.2 +
-        row["Turbidity"] * 0.6 +
-        row["Total Hardness"] / 250
-    )
-
-    r = np.random.rand()
-
-    if score < 2.5:
-        return "Safe" if r > 0.15 else "Moderate"
-    elif score < 4:
-        return "Moderate" if r > 0.2 else np.random.choice(["Safe", "Unsafe"])
-    else:
-        return "Unsafe" if r > 0.15 else "Moderate"
-
-
-df["Quality"] = df.apply(assign_quality, axis=1)
-
-# Save updated dataset
-df.to_excel("water_quality_updated.xlsx", index=False)
-
-
-# Clean dataset
+df["pH"] = df["pH"].clip(5.5, 9.5)
+df["Turbidity"] = df["Turbidity"].clip(0, 10)
+df["Total_Hardness"] = df["Total_Hardness"].clip(50, 600)
 
 
 df = df.drop_duplicates()
 df = df.dropna()
 
 
-# Define features and label
+df = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
 
 X = df.drop(columns=['Sample_ID', 'Quality'])
 y = df['Quality']
 
 
-# Encode the target values(safe -> 0,Moderate -> 1,Unsafe -> 2)
-
-
 le = LabelEncoder()
 y = le.fit_transform(y)
 
 
-# Split dataset
-
-
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=42
+    X, y,
+    test_size=0.3,
+    random_state=42,
+    stratify=y
 )
-
-
-# Create the model
 
 
 rf_model = RandomForestClassifier(
-    n_estimators=120,
-    max_depth=6,
-    min_samples_split=5,
-    min_samples_leaf=3,
+    n_estimators=200,
+    max_depth=10,
+    min_samples_split=4,
+    min_samples_leaf=2,
+    class_weight={0:1, 1:1, 2:2},
     random_state=42
 )
 
-
-# Train the model
-
-
 rf_model.fit(X_train, y_train)
 
-
-# Make Predictions
-
-
 y_pred = rf_model.predict(X_test)
-y_pred
-
-
-# Check Model Accuracy
-
 
 accuracy = accuracy_score(y_test, y_pred)
-print("Accuracy:", accuracy)
-plt.bar(["Accuracy"], [accuracy])
-
-plt.title("Model Accuracy")
-plt.ylim(0, 1)
-
-plt.show()
-
-# Confusion Matrix(correct VS incorrect predictions)
-
+print("\nRandom Forest Accuracy:", accuracy)
 
 cm = confusion_matrix(y_test, y_pred)
-print(cm)
+print("\nConfusion Matrix:\n", cm)
 
-
-# Predicting the state of new sample
-
-
-new_sample = pd.DataFrame([[6.5, 0.5, 25]], columns=X.columns)
-prediction = rf_model.predict(new_sample)
-print(prediction)
-prediction = rf_model.predict(new_sample)
-result = le.inverse_transform(prediction)
-print("Water Quality:", result[0])
-
-
+print("\nClassification Report:\n")
 print(classification_report(y_test, y_pred))
-
-
-# Feature Distribution
-
-
-sns.histplot(df['pH'], kde=True)
-plt.title("pH Distribution")
-plt.show()
-
-sns.histplot(df['Turbidity'], kde=True)
-plt.title("Turbidity Distribution")
-plt.show()
-
-sns.histplot(df['Total Hardness'], kde=True)
-plt.title("Total Hardness Distribution")
-plt.show()
-
-
-# Feature Importance
 
 
 importances = rf_model.feature_importances_
 
-feature_names = X.columns
-
-plt.bar(feature_names, importances)
+plt.figure()
+plt.bar(X.columns, importances)
 plt.title("Feature Importance")
 plt.xlabel("Parameters")
 plt.ylabel("Importance")
 plt.show()
 
 
-df['WQI'] = (
-    (df['pH']/8.5)*0.3 +
-    (df['Turbidity']/5)*0.4 +
-    (df['Total Hardness']/600)*0.3
-)
-
-
-# Water Quality Index Calculation
-
-
-sns.histplot(df['WQI'])
-plt.title("Water Quality Index Distribution")
+plt.figure()
+plt.bar(["Random Forest"], [accuracy])
+plt.ylim(0, 1)
+plt.title("Random Forest Accuracy")
 plt.show()
 
 
-# Save the trained Model
+models = {
+    "Decision Tree": DecisionTreeClassifier(max_depth=8, random_state=42),
+    "Logistic Regression": LogisticRegression(max_iter=1000),
+    "KNN": KNeighborsClassifier(n_neighbors=7),
+    "Naive Bayes": GaussianNB()
+}
 
+results = {}
+
+
+results["Random Forest"] = accuracy
+
+print("\n--- Model Comparison ---\n")
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+    acc = accuracy_score(y_test, pred)
+    results[name] = acc
+    print(f"{name}: {acc:.3f}")
+
+
+plt.figure()
+
+names = list(results.keys())
+values = list(results.values())
+
+plt.bar(names, values)
+plt.title("Algorithm Comparison")
+plt.xlabel("Models")
+plt.ylabel("Accuracy")
+plt.ylim(0, 1)
+plt.xticks(rotation=30)
+
+plt.show()
+
+
+new_sample = pd.DataFrame([[6.6, 2.0, 180]], columns=X.columns)
+
+prediction = rf_model.predict(new_sample)
+result = le.inverse_transform(prediction)
+
+print("\nNew Sample Prediction:", result[0])
 
 
 joblib.dump(rf_model, "water_quality_model.pkl")
